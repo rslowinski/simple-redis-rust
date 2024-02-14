@@ -7,7 +7,7 @@ fn handle_stream(mut tcp_stream: TcpStream) {
     let mut input_buf = [0; 512];
     let mut output_buf = b"+PONG\r\n";
     loop {
-        tcp_stream.read(&mut input_buf).expect("Failed to read from client");
+        // tcp_stream.read(&mut input_buf).expect("Failed to read from client");
         tcp_stream.write_all(&mut output_buf).expect("Failed to wrtie to client");
     }
 
@@ -23,7 +23,7 @@ fn main() {
     //
     for stream in listener.incoming() {
         match stream {
-            Ok(mut _stream) => {
+            Ok(_stream) => {
                 handle_stream(_stream)
             }
             Err(e) => {
