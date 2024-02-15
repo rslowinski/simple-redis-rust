@@ -17,7 +17,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(_stream) => {
-                thread::spawn(|| {
+                thread::spawn(move || {
                     handle_stream(_stream);
                 });
             }
