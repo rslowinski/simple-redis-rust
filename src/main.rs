@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-
+use std::thread;
 
 fn handle_stream(mut tcp_stream: TcpStream) {
     let mut input_buf = [0; 512];
@@ -9,7 +9,6 @@ fn handle_stream(mut tcp_stream: TcpStream) {
         tcp_stream.read(&mut input_buf).expect("Failed to read from client");
         tcp_stream.write_all(output_buf).expect("Failed to wrtie to client");
     }
-
 }
 
 fn main() {
@@ -18,7 +17,9 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(_stream) => {
-                handle_stream(_stream)
+                thread::spawn(|| {
+                    handle_stream(_stream);
+                });
             }
             Err(e) => {
                 println!("error: {}", e);
