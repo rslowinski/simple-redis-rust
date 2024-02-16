@@ -2,12 +2,30 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 
+
+fn parse_request(incoming_str: &str) -> Vec<&str> {
+    let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
+    let cmd = parts[2];
+
+    match cmd.to_lowercase().as_str() {
+        "ping" => {
+            return vec!["pong"];
+        }
+        "echo" => {
+            return vec![parts[4]]
+        }
+        _ => vec![""]
+    }
+}
+
 fn handle_stream(mut tcp_stream: TcpStream) {
-    let mut input_buf = [0; 512];
-    let output_buf = b"+PONG\r\n";
     loop {
-        tcp_stream.read(&mut input_buf).expect("Failed to read from client");
-        tcp_stream.write_all(output_buf).expect("Failed to wrtie to client");
+        let mut input_buf = [0; 512];
+        let num_bytes = tcp_stream.read(&mut input_buf).unwrap();
+        if num_bytes == 0 { return; }
+
+        let incoming_str = std::str::from_utf8(&input_buf).unwrap();
+        parse_request(incoming_str);
     }
 }
 
@@ -26,4 +44,12 @@ fn main() {
             }
         }
     }
+}
+
+
+#[test]
+pub fn test_echo_parse_request() {
+    let echo_str = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n";
+    let res = parse_request(echo_str);
+    assert_eq!(res, vec!["hey"]);
 }
