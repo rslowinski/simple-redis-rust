@@ -3,18 +3,20 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 
-fn parse_request(incoming_str: &str) -> Vec<&str> {
+fn parse_request(incoming_str: &str) -> String {
     let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
     let cmd = parts[2];
 
     match cmd.to_lowercase().as_str() {
         "ping" => {
-            return vec!["pong"];
+            return String::from("+PONG\r\n")
         }
         "echo" => {
-            return vec![parts[4]]
+            let re = parts[4];
+            let reply_string = format!("${}\r\n{}\r\n", re.len(), re);
+            return reply_string
         }
-        _ => vec![""]
+        _ => String::from("")
     }
 }
 
@@ -25,7 +27,9 @@ fn handle_stream(mut tcp_stream: TcpStream) {
         if num_bytes == 0 { return; }
 
         let incoming_str = std::str::from_utf8(&input_buf).unwrap();
-        parse_request(incoming_str);
+        let resp = parse_request(incoming_str);
+
+        tcp_stream.write_all(resp.as_ref()).unwrap()
     }
 }
 
@@ -51,5 +55,5 @@ fn main() {
 pub fn test_echo_parse_request() {
     let echo_str = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n";
     let res = parse_request(echo_str);
-    assert_eq!(res, vec!["hey"]);
+    assert_eq!(res, "$3\r\nhey\r\n");
 }
