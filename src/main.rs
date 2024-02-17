@@ -14,6 +14,8 @@ fn parse_request(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, Stri
     let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
     let cmd = parts[2];
 
+    println!("received request: {}", incoming_str);
+
     match cmd.to_lowercase().as_str() {
         "ping" => {
             return String::from("+PONG\r\n");
