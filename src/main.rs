@@ -16,32 +16,32 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, String>
 
     println!("received request: {}", incoming_str);
 
-    match cmd.to_lowercase().as_str() {
+    return match cmd.to_lowercase().as_str() {
         "ping" => {
-            return String::from("+PONG\r\n");
+            String::from("+PONG\r\n")
         }
         "echo" => {
             let re = parts[4];
-            return convert_to_bulk_string(re);
+            convert_to_bulk_string(re)
         }
         "get" => {
             let cache = cache_mutex.lock().unwrap();
             let key = parts[4];
             let value = cache.get(key);
-            return match value {
+            match value {
                 None => { NULL_BULK_STRING.to_string() }
                 Some(_value) => { convert_to_bulk_string(_value) }
-            };
+            }
         }
         "set" => {
             let key = parts[4];
             let value = parts[6];
             let mut cache = cache_mutex.lock().unwrap();
             cache.insert(key.to_string(), value.to_string());
-            return String::from("+\r\nOK");
+            String::from("+\r\nOK")
         }
         _ => String::from("")
-    }
+    };
 }
 
 fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<HashMap<String, String>>>) {
