@@ -14,6 +14,7 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, String>
     let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
     let cmd = parts[2];
 
+    println!("received request: {}", incoming_str);
 
     match cmd.to_lowercase().as_str() {
         "ping" => {
