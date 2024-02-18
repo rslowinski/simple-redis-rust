@@ -17,11 +17,7 @@ struct Record {
 
 impl Record {
     fn new(key: String, value: String, expire_in_ms: Option<i64>) -> Record {
-        let mut expiry = if expire_in_ms.is_some() {
-            Option::from(Utc::now() + Duration::milliseconds(expire_in_ms.unwrap()))
-        } else {
-            Option::from(None)
-        };
+        let expiry = expire_in_ms.map(|ms| Utc::now() + Duration::milliseconds(ms));
 
         Record {
             key,
@@ -31,10 +27,9 @@ impl Record {
     }
 
     fn is_expired(&self) -> bool {
-        if self.expiry.is_some() && Utc::now() > self.expiry.unwrap() {
-            return true;
-        }
-        false
+        self.expiry
+            .map(|expiry_time| Utc::now() > expiry_time)
+            .unwrap_or(false)
     }
 }
 
@@ -47,8 +42,8 @@ impl Database {
         self.records.insert(record.key.to_string(), record);
     }
 
-    fn get(&self, key: String) -> Option<&Record> {
-        let record = self.records.get(&key);
+    fn get(&self, key: &str) -> Option<&Record> {
+        let record = self.records.get(key);
         if record.is_some() && record.unwrap().is_expired() {
             return None;
         }
@@ -62,7 +57,7 @@ fn convert_to_bulk_string(input: &str) -> String {
 }
 
 
-fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, Record>>>) -> String {
+fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
     let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
     let cmd = parts[2];
 
@@ -88,17 +83,18 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, Record>
         "set" => {
             let key = parts[4];
             let value = parts[6];
-            let expiry: Option<i64> = parts.get(8).and_then(|s| s.parse::<i64>().ok());
+            let expiry: Option<i64> = parts.get(10).and_then(|s| s.parse::<i64>().ok());
+            println!("expiry: {}", parts.get(10).unwrap());
             let mut cache = cache_mutex.lock().unwrap();
             let record = Record::new(key.to_string(), value.to_string(), expiry);
-            cache.insert(key.to_string(), record);
+            cache.insert(record);
             String::from("+OK\r\n")
         }
         _ => String::from("")
     };
 }
 
-fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<HashMap<String, Record>>>) {
+fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<Database>>) {
     loop {
         let mut input_buf = [0; 512];
         let num_bytes = tcp_stream.read(&mut input_buf).unwrap();
@@ -115,7 +111,7 @@ fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<HashMap<Strin
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
-    let cache = HashMap::new();
+    let cache = Database { records: HashMap::new() };
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
@@ -137,7 +133,7 @@ fn main() {
 
 #[test]
 pub fn test_get_and_set() {
-    let cache = HashMap::new();
+    let cache = Database { records: HashMap::new() };
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
@@ -151,18 +147,18 @@ pub fn test_get_and_set() {
 
 #[test]
 pub fn test_expiry() {
-    let cache = HashMap::new();
+    let cache = Database { records: HashMap::new() };
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
-    let set_command = "*4\r\n$3\r\nset\r\n$3\r\nhey\r\n$5\r\nworld\r\npx\r\n100";
+    let set_command = "*4\r\n$3\r\nset\r\n$3\r\nhey\r\n$5\r\nworld\r\n$2\r\npx\r\n$3\r\n100";
     handle_req(set_command, cache_mutex.clone());
 
     let get_command = "*2\r\n$3\r\nGET\r\n$3\r\nhey\r\n";
     let res = handle_req(get_command, cache_mutex.clone());
     assert_eq!(res, "$5\r\nworld\r\n");
 
-    sleep(std::time::Duration::from_millis(101));
+    sleep(std::time::Duration::from_millis(105));
     let res = handle_req(get_command, cache_mutex.clone());
     assert_eq!(res, NULL_BULK_STRING);
 }
