@@ -84,7 +84,6 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             let key = parts[4];
             let value = parts[6];
             let expiry: Option<i64> = parts.get(10).and_then(|s| s.parse::<i64>().ok());
-            println!("expiry: {}", parts.get(10).unwrap());
             let mut cache = cache_mutex.lock().unwrap();
             let record = Record::new(key.to_string(), value.to_string(), expiry);
             cache.insert(record);
