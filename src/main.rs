@@ -38,7 +38,7 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, String>
             let value = parts[6];
             let mut cache = cache_mutex.lock().unwrap();
             cache.insert(key.to_string(), value.to_string());
-            String::from("+\r\nOK")
+            String::from("+OK\r\n")
         }
         _ => String::from("")
     };
