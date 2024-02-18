@@ -3,14 +3,66 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::thread::sleep;
+
+use chrono::{DateTime, Duration, Utc};
 
 const NULL_BULK_STRING: &str = "$-1\r\n";
+
+struct Record {
+    key: String,
+    value: String,
+    expiry: Option<DateTime<Utc>>,
+}
+
+impl Record {
+    fn new(key: String, value: String, expire_in_ms: Option<i64>) -> Record {
+        let mut expiry = if expire_in_ms.is_some() {
+            Option::from(Utc::now() + Duration::milliseconds(expire_in_ms.unwrap()))
+        } else {
+            Option::from(None)
+        };
+
+        Record {
+            key,
+            value,
+            expiry,
+        }
+    }
+
+    fn is_expired(&self) -> bool {
+        if self.expiry.is_some() && Utc::now() > self.expiry.unwrap() {
+            return true;
+        }
+        false
+    }
+}
+
+struct Database {
+    records: HashMap<String, Record>,
+}
+
+impl Database {
+    fn insert(&mut self, record: Record) {
+        self.records.insert(record.key.to_string(), record);
+    }
+
+    fn get(&self, key: String) -> Option<&Record> {
+        let record = self.records.get(&key);
+        if record.is_some() && record.unwrap().is_expired() {
+            return None;
+        }
+        return record;
+    }
+}
+
 
 fn convert_to_bulk_string(input: &str) -> String {
     format!("${}\r\n{}\r\n", input.len(), input)
 }
 
-fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, String>>>) -> String {
+
+fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, Record>>>) -> String {
     let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
     let cmd = parts[2];
 
@@ -27,24 +79,26 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<HashMap<String, String>
         "get" => {
             let cache = cache_mutex.lock().unwrap();
             let key = parts[4];
-            let value = cache.get(key);
-            match value {
+            let record = cache.get(key);
+            match record {
                 None => { NULL_BULK_STRING.to_string() }
-                Some(_value) => { convert_to_bulk_string(_value) }
+                Some(_record) => { convert_to_bulk_string(&_record.value) }
             }
         }
         "set" => {
             let key = parts[4];
             let value = parts[6];
+            let expiry: Option<i64> = parts.get(8).and_then(|s| s.parse::<i64>().ok());
             let mut cache = cache_mutex.lock().unwrap();
-            cache.insert(key.to_string(), value.to_string());
+            let record = Record::new(key.to_string(), value.to_string(), expiry);
+            cache.insert(key.to_string(), record);
             String::from("+OK\r\n")
         }
         _ => String::from("")
     };
 }
 
-fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<HashMap<String, String>>>) {
+fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<HashMap<String, Record>>>) {
     loop {
         let mut input_buf = [0; 512];
         let num_bytes = tcp_stream.read(&mut input_buf).unwrap();
@@ -82,15 +136,33 @@ fn main() {
 
 
 #[test]
-pub fn test_echo_parse_request() {
+pub fn test_get_and_set() {
     let cache = HashMap::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
-    let echo_str = "*3\r\n$3\r\nset\r\n$3\r\nhey\r\n$5\r\nworld";
-    handle_req(echo_str, cache_mutex.clone());
+    let set_command = "*3\r\n$3\r\nset\r\n$3\r\nhey\r\n$5\r\nworld";
+    handle_req(set_command, cache_mutex.clone());
 
-    let echo_str = "*2\r\n$3\r\nGET\r\n$3\r\nhey\r\n";
-    let res = handle_req(echo_str, cache_mutex.clone());
+    let get_command = "*2\r\n$3\r\nGET\r\n$3\r\nhey\r\n";
+    let res = handle_req(get_command, cache_mutex.clone());
     assert_eq!(res, "$5\r\nworld\r\n");
+}
+
+#[test]
+pub fn test_expiry() {
+    let cache = HashMap::new();
+    let cache_mutex = Arc::new(Mutex::new(cache));
+
+
+    let set_command = "*4\r\n$3\r\nset\r\n$3\r\nhey\r\n$5\r\nworld\r\npx\r\n100";
+    handle_req(set_command, cache_mutex.clone());
+
+    let get_command = "*2\r\n$3\r\nGET\r\n$3\r\nhey\r\n";
+    let res = handle_req(get_command, cache_mutex.clone());
+    assert_eq!(res, "$5\r\nworld\r\n");
+
+    sleep(std::time::Duration::from_millis(101));
+    let res = handle_req(get_command, cache_mutex.clone());
+    assert_eq!(res, NULL_BULK_STRING);
 }
