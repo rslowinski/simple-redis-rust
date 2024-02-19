@@ -45,7 +45,7 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             database.insert(record);
             "+OK\r\n".to_string()
         }
-        _ => String::from("")
+        Err(_) => "Incorrect or unsupported req".to_string(),
     };
 }
 
