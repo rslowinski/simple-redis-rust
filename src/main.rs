@@ -7,48 +7,43 @@ use std::thread::sleep;
 use database::Database;
 use record::Record;
 
+use crate::command::Command;
+
 mod record;
 mod database;
+mod command;
 
 const NULL_BULK_STRING: &str = "$-1\r\n";
 
 
-fn convert_to_bulk_string(input: &str) -> String {
+fn convert_to_bulk_string(input: String) -> String {
     format!("${}\r\n{}\r\n", input.len(), input)
 }
 
-
 fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
-    let parts = incoming_str.split("\r\n").collect::<Vec<&str>>();
-    let cmd = parts[2];
-
     println!("received request=\n{}", incoming_str);
+    let command = Command::parse_redis_format(incoming_str);
 
-    return match cmd.to_lowercase().as_str() {
-        "ping" => {
+
+    return match command {
+        Ok(Command::Ping) => {
             String::from("+PONG\r\n")
         }
-        "echo" => {
-            let re = parts[4];
-            convert_to_bulk_string(re)
+        Ok(Command::Echo(echo_val)) => {
+            convert_to_bulk_string(echo_val)
         }
-        "get" => {
-            let cache = cache_mutex.lock().unwrap();
-            let key = parts[4];
-            let record = cache.get(key);
-            match record {
-                None => { NULL_BULK_STRING.to_string() }
-                Some(_record) => { convert_to_bulk_string(&_record.value) }
+        Ok(Command::Get(key)) => {
+            let database = cache_mutex.lock().unwrap();
+            match database.get(&key) {
+                None => NULL_BULK_STRING.to_string(),
+                Some(record) => convert_to_bulk_string(record.value.clone())
             }
         }
-        "set" => {
-            let key = parts[4];
-            let value = parts[6];
-            let expiry: Option<i64> = parts.get(10).and_then(|s| s.parse::<i64>().ok());
-            let mut cache = cache_mutex.lock().unwrap();
-            let record = Record::new(key.to_string(), value.to_string(), expiry);
-            cache.insert(record);
-            String::from("+OK\r\n")
+        Ok(Command::Set(params)) => {
+            let mut database = cache_mutex.lock().unwrap();
+            let record = Record::new(params.key, params.value, params.expiry);
+            database.insert(record);
+            "+OK\r\n".to_string()
         }
         _ => String::from("")
     };
