@@ -1,55 +1,16 @@
-use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
 
-use chrono::{DateTime, Duration, Utc};
+use database::Database;
+use record::Record;
+
+mod record;
+mod database;
 
 const NULL_BULK_STRING: &str = "$-1\r\n";
-
-struct Record {
-    key: String,
-    value: String,
-    expiry: Option<DateTime<Utc>>,
-}
-
-impl Record {
-    fn new(key: String, value: String, expire_in_ms: Option<i64>) -> Record {
-        let expiry = expire_in_ms.map(|ms| Utc::now() + Duration::milliseconds(ms));
-
-        Record {
-            key,
-            value,
-            expiry,
-        }
-    }
-
-    fn is_expired(&self) -> bool {
-        self.expiry
-            .map(|expiry_time| Utc::now() > expiry_time)
-            .unwrap_or(false)
-    }
-}
-
-struct Database {
-    records: HashMap<String, Record>,
-}
-
-impl Database {
-    fn insert(&mut self, record: Record) {
-        self.records.insert(record.key.to_string(), record);
-    }
-
-    fn get(&self, key: &str) -> Option<&Record> {
-        let record = self.records.get(key);
-        if record.is_some() && record.unwrap().is_expired() {
-            return None;
-        }
-        return record;
-    }
-}
 
 
 fn convert_to_bulk_string(input: &str) -> String {
@@ -110,7 +71,7 @@ fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<Database>>) {
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
-    let cache = Database { records: HashMap::new() };
+    let cache = Database::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
@@ -132,7 +93,7 @@ fn main() {
 
 #[test]
 pub fn test_get_and_set() {
-    let cache = Database { records: HashMap::new() };
+    let cache = Database::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
@@ -146,7 +107,7 @@ pub fn test_get_and_set() {
 
 #[test]
 pub fn test_expiry() {
-    let cache = Database { records: HashMap::new() };
+    let cache = Database::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
 
 
