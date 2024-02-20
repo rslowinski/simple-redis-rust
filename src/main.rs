@@ -50,7 +50,7 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             let master_addr = get_master_addr(args);
 
             let repl_id_resp = convert_to_bulk_string(String::from("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"));
-            let offset_resp = convert_to_bulk_string(String::from("master:repl_offset:0"));
+            let offset_resp = convert_to_bulk_string(String::from("master_repl_offset:0"));
 
             if master_addr.is_some() {
                 let role = "role:slave";
