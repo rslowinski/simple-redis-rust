@@ -16,10 +16,8 @@ impl Database {
     }
 
     pub(crate) fn get(&self, key: &str) -> Option<&Record> {
-        let record = self.records.get(key);
-        if record.is_some() && record.unwrap().is_expired() {
-            return None;
-        }
-        return record;
+        self.records.get(key).and_then(|record| {
+            if record.is_expired() { None } else { Some(record) }
+        })
     }
 }

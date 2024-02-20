@@ -52,7 +52,7 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
 fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<Database>>) {
     loop {
         let mut input_buf = [0; 512];
-        let num_bytes = tcp_stream.read(&mut input_buf).unwrap();
+        let num_bytes = tcp_stream.read(&mut input_buf)?;
         if num_bytes == 0 { return; }
 
         let incoming_str = std::str::from_utf8(&input_buf).unwrap();
