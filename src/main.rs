@@ -1,7 +1,7 @@
+use std::{env, thread};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::thread::sleep;
 
 use database::Database;
@@ -64,7 +64,15 @@ fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<Database>>) {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
+    let args = env::args().collect::<Vec<String>>();
+
+    let port: u16 = args.iter()
+        .position(|arg| arg == "--port")
+        .and_then(|index| args.get(index + 1))
+        .and_then(|port| port.parse().ok())
+        .unwrap_or(6379);
+
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
 
     let cache = Database::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
