@@ -45,6 +45,9 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             database.insert(record);
             "+OK\r\n".to_string()
         }
+        Ok(Command::Info(_)) => {
+            convert_to_bulk_string(String::from("role:master"))
+        }
         Err(_) => "Incorrect or unsupported req".to_string(),
     };
 }

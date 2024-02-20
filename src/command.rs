@@ -6,11 +6,17 @@ pub struct SetParams {
     pub(crate) expiry: Option<i64>,
 }
 
+pub enum InfoKey {
+    Replication
+}
+
+
 pub enum Command {
     Ping,
     Echo(String),
     Get(String),
     Set(SetParams),
+    Info(InfoKey),
 }
 
 impl Command {
@@ -34,6 +40,10 @@ impl Command {
                 let value = parts.get(6).ok_or_else(|| anyhow!("Missing value"))?.to_string();
                 let expiry = parts.get(10).and_then(|s| s.parse::<i64>().ok());
                 Ok(Self::Set(SetParams { key, value, expiry }))
+            }
+            "INFO" => {
+                let key = parts.get(4).ok_or_else(|| anyhow!("Missing info param"))?.to_string();
+                Ok(Self::Info(InfoKey::Replication))
             }
             _ => bail!("Incorrect RESP message")
         }
