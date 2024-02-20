@@ -46,7 +46,15 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             "+OK\r\n".to_string()
         }
         Ok(Command::Info(_)) => {
-            convert_to_bulk_string(String::from("role:master"))
+            let args = env::args().collect::<Vec<String>>();
+            let master_addr = get_master_addr(args);
+
+            if master_addr.is_some() {
+                convert_to_bulk_string(String::from("role:slave"))
+            } else {
+                convert_to_bulk_string(String::from("role:master"))
+            }
+
         }
         Err(_) => "Incorrect or unsupported req".to_string(),
     };
@@ -94,6 +102,16 @@ fn main() {
             }
         }
     }
+}
+
+fn get_master_addr(args: Vec<String>) -> Option<String> {
+    args.iter()
+        .position(|arg| arg == "--replicaof")
+        .and_then(|index| args
+            .get(index + 1)
+            .and_then(|ip| args
+                .get(index + 2)
+                .map(|port| format!("{}:{}", ip, port))))
 }
 
 
