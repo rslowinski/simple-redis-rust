@@ -49,16 +49,21 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             let args = env::args().collect::<Vec<String>>();
             let master_addr = get_master_addr(args);
 
+            let repl_id_resp = convert_to_bulk_string(String::from("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"));
+            let offset_resp = convert_to_bulk_string(String::from("master:repl_offset:0"));
+
             if master_addr.is_some() {
                 let role = "role:slave";
-                let repl_id = "master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
-                let offset = "master:repl_offset:0";
                 format!("{}{}{}",
                         convert_to_bulk_string(String::from(role)),
-                        convert_to_bulk_string(String::from(repl_id)),
-                        convert_to_bulk_string(String::from(offset)))
+                        repl_id_resp,
+                        offset_resp)
             } else {
-                convert_to_bulk_string(String::from("role:master"))
+                let role = "role:master";
+                format!("{}{}{}",
+                        convert_to_bulk_string(String::from(role)),
+                        repl_id_resp,
+                        offset_resp)
             }
         }
         Err(_) => "Incorrect or unsupported req".to_string(),
