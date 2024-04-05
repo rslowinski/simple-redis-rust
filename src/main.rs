@@ -55,16 +55,16 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             if let InfoKey::Replication = key {
                 if master_addr.is_some() {
                     let role = "role:slave";
-                    format!("{}\n{}{}",
-                            role,
-                            repl_id_resp,
-                            offset_resp)
+                    convert_to_bulk_string(format!("{}\n{}{}",
+                                                   role,
+                                                   repl_id_resp,
+                                                   offset_resp))
                 } else {
                     let role = "role:master";
-                    format!("{}\n{}\n{}",
-                            role,
-                            repl_id_resp,
-                            offset_resp)
+                    convert_to_bulk_string(format!("{}\n{}\n{}",
+                                                   role,
+                                                   repl_id_resp,
+                                                   offset_resp))
                 }
             } else {
                 NULL_BULK_STRING.to_string()
