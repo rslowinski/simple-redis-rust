@@ -7,7 +7,7 @@ use std::thread::sleep;
 use database::Database;
 use record::Record;
 
-use crate::command::Command;
+use crate::command::{Command, InfoKey};
 
 mod record;
 mod database;
@@ -45,25 +45,29 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
             database.insert(record);
             "+OK\r\n".to_string()
         }
-        Ok(Command::Info(_)) => {
+        Ok(Command::Info(key)) => {
             let args = env::args().collect::<Vec<String>>();
             let master_addr = get_master_addr(args);
 
-            let repl_id_resp = convert_to_bulk_string(String::from("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"));
-            let offset_resp = convert_to_bulk_string(String::from("master_repl_offset:0"));
+            let repl_id_resp = (String::from("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"));
+            let offset_resp = (String::from("master_repl_offset:0"));
 
-            if master_addr.is_some() {
-                let role = "role:slave";
-                format!("*3\r\n{}{}{}",
-                        convert_to_bulk_string(String::from(role)),
-                        repl_id_resp,
-                        offset_resp)
+            if let InfoKey::Replication = key {
+                if master_addr.is_some() {
+                    let role = "role:slave";
+                    format!("{}\n{}{}",
+                            role,
+                            repl_id_resp,
+                            offset_resp)
+                } else {
+                    let role = "role:master";
+                    format!("{}\n{}\n{}",
+                            role,
+                            repl_id_resp,
+                            offset_resp)
+                }
             } else {
-                let role = "role:master";
-                format!("*3\r\n{}{}{}",
-                        convert_to_bulk_string(String::from(role)),
-                        repl_id_resp,
-                        offset_resp)
+                NULL_BULK_STRING.to_string()
             }
         }
         Err(_) => "Incorrect or unsupported req".to_string(),
