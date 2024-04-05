@@ -56,14 +56,14 @@ fn handle_req(incoming_str: &str, cache_mutex: Arc<Mutex<Database>>) -> String {
                 let role = "role:slave";
                 format!("*3\r\n{}{}{}",
                         convert_to_bulk_string(String::from(role)),
-                        convert_to_bulk_string(repl_id_resp),
-                        convert_to_bulk_string(offset_resp))
+                        repl_id_resp,
+                        offset_resp)
             } else {
                 let role = "role:master";
                 format!("*3\r\n{}{}{}",
                         convert_to_bulk_string(String::from(role)),
-                        convert_to_bulk_string(repl_id_resp),
-                        convert_to_bulk_string(offset_resp))
+                        repl_id_resp,
+                        offset_resp)
             }
         }
         Err(_) => "Incorrect or unsupported req".to_string(),
