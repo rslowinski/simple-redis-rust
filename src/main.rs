@@ -15,6 +15,19 @@ mod command;
 
 const NULL_BULK_STRING: &str = "$-1\r\n";
 
+enum ServerRole {
+    Master,
+    Slave,
+}
+
+struct Server {
+    role: ServerRole,
+    port: String,
+    master_replid: Option<String>,
+    master_repl_offset: Option<String>,
+    master_host: Option<String>,
+    master_port: Option<String>,
+}
 
 fn convert_to_bulk_string(input: String) -> String {
     format!("${}\r\n{}\r\n", input.len(), input)
@@ -88,6 +101,15 @@ fn handle_stream(mut tcp_stream: TcpStream, cache_mutex: Arc<Mutex<Database>>) {
 fn main() {
     let args = env::args().collect::<Vec<String>>();
 
+    // let mut server = Server {
+    //     port: String::from("6379"),
+    //     role: ServerRole::Master,
+    //     master_replid: Some(String::from("8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb")),
+    //     master_repl_offset: Some(String::from("0")),
+    //     master_host: None,
+    //     master_port: None,
+    // };
+
     let port: u16 = args.iter()
         .position(|arg| arg == "--port")
         .and_then(|index| args.get(index + 1))
@@ -98,6 +120,16 @@ fn main() {
 
     let cache = Database::new();
     let cache_mutex = Arc::new(Mutex::new(cache));
+
+    if let Some(master_addr) = get_master_addr(args) {
+        let mut stream = TcpStream::connect(master_addr).unwrap();
+        let command = convert_to_bulk_string(String::from("PING"));
+        stream.write_all(command.as_bytes()).unwrap();
+
+        let mut buffer = [0; 1024];
+        stream.read(&mut buffer).unwrap();
+        println!("Received from server: {}", String::from_utf8_lossy(&buffer));
+    }
 
 
     for stream in listener.incoming() {
