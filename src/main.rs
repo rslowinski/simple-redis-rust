@@ -123,7 +123,7 @@ fn main() {
 
     if let Some(master_addr) = get_master_addr(args) {
         let mut stream = TcpStream::connect(master_addr).unwrap();
-        let command = convert_to_bulk_string(String::from("PING"));
+        let command = format!("*1\r\n{}", convert_to_bulk_string(String::from("PING")));
         stream.write_all(command.as_bytes()).unwrap();
 
         let mut buffer = [0; 1024];
